@@ -10,8 +10,11 @@ from numpy import ndarray
 class MemoryEnvironment(Env):
 
     def __init__(self, memory: List[int] = None, arrays: List[int] = None, memory_size: int = -1, n_arrays: int = -1,
-                 max_size:int=10 ** 3):
+                 max_size: int = 10 ** 3):
         super(MemoryEnvironment, self).__init__()
+
+        assert (memory is not None and arrays is not None) or (
+                memory_size > 0 and n_arrays > 0 and max_size > 0), "Memory and Arrays must be provided, or memory_size, n_arrays, and max_size must be provided"
 
         self.i = 0
         self.memory_size = memory_size
@@ -20,17 +23,21 @@ class MemoryEnvironment(Env):
         self.n_arrays = n_arrays
         self.max_size = max_size
 
-        self.action_space = gym.spaces.Discrete(len(memory))
-        self.observation_space = gym.spaces.Box(low=0, high=len(arrays), shape=(len(memory),))
+        if self.memory_size <= 0:
+            self.action_space = gym.spaces.Discrete(len(memory))
+            self.observation_space = gym.spaces.Box(low=0, high=len(arrays), shape=(len(memory),))
+        else:
+            self.action_space = gym.spaces.Discrete(memory_size)
+            self.observation_space = gym.spaces.Box(low=0, high=n_arrays, shape=(memory_size,))
 
     def reset(self):
         self.i = 0
-        if self.memory is None or self.arrays is None:
+        if self.memory_size > 0:
             self.memory = np.random.randint(low=1, high=self.max_size, size=(self.memory_size,))
             self.arrays = np.random.randint(low=1, high=self.max_size, size=(self.n_arrays,))
         else:
-            self.memory = self.memory
-            self.arrays = self.arrays
+            self.memory = np.array(self.memory)
+            self.arrays = np.array(self.arrays)
         return self._state()
 
     def _state(self):
@@ -41,7 +48,7 @@ class MemoryEnvironment(Env):
     def step(self, action: int) -> Union[
         tuple[None, float, bool, dict[Any, Any]], tuple[ndarray, int, bool, dict[Any, Any]]]:
         if self.arrays[self.i] > self.memory[action]:
-            reward = -10  # meaning that this designated allocation will overwrite its neighboring cells
+            reward = -1  # meaning that this designated allocation will overwrite its neighboring cells
         else:
             reward = float(np.mean(self.memory == 0))
 
@@ -49,7 +56,7 @@ class MemoryEnvironment(Env):
         self.arrays[self.i] = 0
 
         self.i += 1
-        return self._state(), reward, self.i == len(self.arrays), {}
+        return self._state(), self.i / len(self.arrays) * reward + 0.9*float(np.mean(self.memory>=0)) , self.i == len(self.arrays), {}
 
     def render(self, mode='human'):
         print(f"\n\n** Step: {self.i + 1}")
