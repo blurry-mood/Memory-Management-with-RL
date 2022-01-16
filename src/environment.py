@@ -76,10 +76,10 @@ class MemoryEnvironment(Env):
             if array >= len(self.arrays):  # if the chosen index doesn't map to an existing array in arrays list
                 reward = INVALID_ACTION_REWARD
             else:
-                if slot >= len(self.memory):  # if the agent chooses to allocate memory after the last block in memory
+                if slot >= len(self.memory):  # if the agent chooses to allocate memory after the last block in memory, penalize it
                     self.memory.append(-self.arrays[array])
                     self.arrays[array] = 0
-                    reward = STEP_REWARD
+                    reward = AFTER_LAST_BLOCK_ALLOCATION_REWARD
                 elif self.arrays[array] > self.memory[
                     slot]:  # if the array size is larger than the free memory, append it at the end
                     self.memory.append(-self.arrays[array])
