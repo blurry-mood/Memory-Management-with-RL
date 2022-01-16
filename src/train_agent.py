@@ -1,13 +1,11 @@
 from environment import MemoryEnvironment
 from os.path import split, join
 from rl_algorithms import QLearning
+from config import *
+import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 _CURRENT_DIR = split(__file__)[0]
-
-ALPHA = 2e-1
-GAMMA = 0.99
-EPS = 1e-1
-ITERS = 2
 
 
 class MemoryAgent(QLearning):
@@ -17,24 +15,41 @@ class MemoryAgent(QLearning):
         return tuple(state)
 
 
-env = MemoryEnvironment(memory_size=4, n_arrays=10)
+env = MemoryEnvironment(n_slots=N_SLOTS, n_arrays=N_ARRAYS, max_size=MAX_ARRAY_SIZE)
 
-qlearning = MemoryAgent(actions=list(range(env.action_space.n)), alpha=ALPHA, gamma=GAMMA, eps=EPS)
+actions_map = [(i, j, k) for i, j, k in zip(range(N_SLOTS + N_ARRAYS), range(N_SLOTS + N_ARRAYS), range(2))]
+qlearning = MemoryAgent(actions=list(range(len(actions_map))), alpha=ALPHA, gamma=GAMMA, eps=EPS)
 qlearning.load(join(_CURRENT_DIR, '..', 'artifacts', 'qlearning'))
 
-for i in range(ITERS):
+rewards = []
+for i in range(EPISODES):
     state = env.reset()
-    env.render()
+    _reward = 0
     n = 0
     done = False
-    while not done:
-        n += 1
-        action = qlearning.take_action(state)
-        state, reward, done, info = env.step(action)
-        qlearning.update(state, reward)
-        env.render()
+    with tqdm(desc=f'Episode {i + 1}') as pbar:
+        while not done:
+            n += 1
 
-    print(f'*********** Episode {i} finished after {n} steps, with a reward equal to {reward}.\n\n')
+            action = qlearning.take_action(state)
+            action = actions_map[action]
+
+            state, reward, done, info = env.step(action)
+            qlearning.update(state, reward)
+
+            _reward += reward
+
+            pbar.update(1)
+            pbar.set_postfix({'Cumulative reward': _reward})
+
+    rewards.append(_reward)
     qlearning.save(join(_CURRENT_DIR, '..', 'artifacts', 'qlearning'))
 
 env.close()
+
+plt.plot(rewards)
+plt.xlabel('Episodes')
+plt.ylabel('Cumulative Reward')
+plt.title('Evolution of Cumulative Reward')
+plt.savefig('Q_learning_agent')
+plt.show()
